@@ -6,6 +6,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+void enviar(int connfd, char* cad);
+void recibir(int connfd);
+void* procesar(int connfd);
+
 int main() {
 	struct sockaddr_in serv_addr;
 
@@ -22,27 +26,64 @@ int main() {
 	listen(listenfd, 10);
 
 	while (1) {
+		pthread_t thread;
 		int connfd = accept(listenfd, (struct sockaddr*) NULL, NULL);
-		thread(&procesar, connfd).detach();
+		pthread_create(&thread, NULL, &procesar, connfd);
 	}
 	close (connfd);
 }
 
 void procesar(int connfd) {
-	char recvBuff[1024];
+	enviar(connfd, "Ingrese nombre de materia");
+	char* materia = recibir(connfd);
+	char* cad;
 	do {
-		bytesRecibidos = read(sockfd, recvBuff, sizeof(recvBuff) - 1);
-		recvBuff[bytesRecibidos] = 0;
-		printf("%s\n", recvBuff);
-		
-	} while (strcmp(recvBuff, "Salir"));
+		enviar(connfd,
+				"Seleccione la accion a realizar: \n\t1) Ver Promedio\n\t2) Realizar carga\n\t3) Salir");
+		cad = recibir(connfd);
+
+		if (strcmp(cad, "3")) {
+			close(connfd);
+			return;
+		}
+		// pedir semaforo
+		char* tipoPeticion = cad;
+
+		if (strcmp(tipoPeticion, "2")) {
+
+			enviar(connfd, "Ingrese DNI");
+			char* dni = recibir(connfd);
+			enviar(connfd, "Ingrese tipo de examen");
+			char* examen = recibir(connfd);
+			char* temp;
+			sprintf(temp, "%s;%s;%s;", dni, materia, examen);
+			if (strstr(archivo, temp) != -1) {
+				char* temp2;
+				enviar(connfd, "Ingrese la nota");
+				sprintf(temp2, "%s\n%s;%s", archivo, temp, recibir(connfd));
+				archivo = temp2;
+
+		enviar(connfd,"Carga realizada con exito");
+			} else
+				enviar(connfd,
+						strcat("ya se realizo la carga del alumno", dni));
+		}
+
+		//liberar
+	} while (1);
 }
 
-void enviar_(int connfd) {
+char* recibir(int connfd) {
+	read(sockfd, recvBuff, sizeof(recvBuff) - 1);
+	printf("%s\n", recvBuff);
+	return recvBuff;
+}
+
+void enviar(int connfd, char* cad) {
 	char sendBuff[1024];
-	do {
-		gets(sendBuff);
-		bytesRecibidos = read(sockfd, sendBuff, sizeof(sendBuff));
-	} while (strcmp(sendBuff, "Salir"));
+	strncpy(cad, sendBuff, 1023);
+	sendBuff[1023] = 0;
+	gets(sendBuff);
+	write(sockfd, sendBuff, sizeof(sendBuff));
 }
 
