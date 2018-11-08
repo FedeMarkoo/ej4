@@ -9,11 +9,12 @@
 #include <arpa/inet.h> 
 #include <netdb.h>
 
+int contine(char* archivo, char* temp);
 void enviar(int connfd, char* cad);
 char* recibir(int connfd);
 void* procesar(void* connfd);
 
-char* archivo = (char*) "\0";
+char* archivo = "\0";
 
 int main() {
 	struct sockaddr_in serv_addr;
@@ -31,68 +32,89 @@ int main() {
 	while (1) {
 		pthread_t thread;
 		connfd = accept(listenfd, (struct sockaddr*) NULL, NULL);
-		pthread_create(&thread, NULL, &procesar, (void*)&connfd);
+		pthread_create(&thread, NULL, &procesar, (void*) &connfd);
 	}
 	close(connfd);
 }
 
 void* procesar(void* cad2) {
-	int connfd = *((int*)cad2);
-	enviar(connfd, (char*) "Ingrese nombre de materia");
+	int connfd = *((int*) cad2);
+	enviar(connfd, "Ingrese nombre de materia");
 	char* materia = recibir(connfd);
 	char* cad;
+	enviar(connfd,
+			"Seleccione la accion a realizar:\n\t1) Ver Promedio\n\t2) Realizar carga\n\t3) Salir");
+
 	do {
-		enviar(connfd,
-				(char*)"Seleccione la accion a realizar: 1) Ver Promedio 2) Realizar carga 3) Salir");
 		cad = recibir(connfd);
 
-		if (strcmp(cad, "3")) {
-			//close(connfd);
-			//return NULL;
+		if (!strcmp(cad, "3")) {
+			close(connfd);
+			return NULL;
 		}
 		// pedir semaforo
 		char* tipoPeticion = cad;
 
-		if (strcmp(tipoPeticion, (char*) "2")) {
+		if (!strcmp(tipoPeticion, "2")) {
 
-			enviar(connfd, (char*) "Ingrese DNI");
+			enviar(connfd, "Ingrese DNI");
 			char* dni = recibir(connfd);
-			enviar(connfd, (char*) "Ingrese tipo de examen");
+			enviar(connfd, "Ingrese tipo de examen");
 			char* examen = recibir(connfd);
-			char* temp;
-			sprintf(temp, "%s;%s;%s;", dni, materia, examen);
-			if (strstr(archivo, temp)) {
-				char* temp2;
-				enviar(connfd, (char*) "Ingrese la nota");
-				sprintf(temp2, "%s\n%s;%s", archivo, temp, recibir(connfd));
-				archivo = temp2;
-
-				enviar(connfd, (char*) "Carga realizada con exito");
+			char temp[100];
+			sprintf(temp, "%s;%s;%s", dni, materia, examen);
+			printf("compara:\narchivo\t%s\ntemp\t%s\n---\n", archivo, temp);
+			if (contine(archivo, temp)) {
+				char temp2[110];
+				enviar(connfd, "Ingrese la nota");
+				sprintf(temp2, "%s;%s", temp, recibir(connfd));
+				char temp3[110];
+				sprintf(temp3, "%s\n%s",archivo, temp2);
+				archivo = temp3;
+				FILE* pf=fopen("Notas.txt","at");
+				fprintf(pf, "%s\n", temp2);
+				fclose(pf);
+				printf("%s\n", archivo);
+				enviar(connfd,
+						"Carga realizada con exito\n\nSeleccione la accion a realizar:\n\t1) Ver Promedio\n\t2) Realizar carga\n\t3) Salir");
 			} else
 				enviar(connfd,
-						strcat((char*) "ya se realizo la carga del alumno",
-								dni));
+						"ya se realizo la carga del alumno\n\nSeleccione la accion a realizar:\n\t1) Ver Promedio\n\t2) Realizar carga\n\t3) Salir");
 		}
 
 		//liberar
 	} while (1);
 }
 
-char* recibir(int connfd) {
-	char* recvBuff = (char*) malloc(100);
-	recvBuff[1]=0;
-do{		while(read(connfd, recvBuff, sizeof(recvBuff) - 1)<2);
+int contine(char* archivo, char* c) {
+	int i = 0;
+	archivo--;
+	while (*(++archivo)) {
+		while (*(c + (i)) && *(c + i) == *(archivo + i)) {
+			if (!*(c + i + 1))
+				return 0;
+			i++;
+		}
+	}
+	return 1;
 }
-	while(strlen(recvBuff)<2);
+
+char* recibir(int connfd) {
+	char* recvBuff = malloc(150);
+	recvBuff[1] = 0;
+	do {
+		while (read(connfd, recvBuff, (150 * sizeof(recvBuff)) - 1) < 1)
+			;
+	} while (strlen(recvBuff) < 1);
 	printf("se recibe: '%s'\n", recvBuff);
 	return recvBuff;
 }
 
 void enviar(int connfd, char* cad) {
-	char sendBuff[100];
-	strncpy(sendBuff, cad, 100);
-	sendBuff[100] = 0;
-	printf("se envia: '%s'\n", cad);
+	char sendBuff[150];
+	strncpy(sendBuff, cad, 150);
+	sendBuff[150] = 0;
+	printf("se envia : '%s'\n", cad);
 	write(connfd, sendBuff, sizeof(sendBuff));
 }
 

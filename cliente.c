@@ -27,33 +27,36 @@ int main(int argc, char *argv[]) {
 	serv_addr.sin_port = htons(5000);
 
 	inet_pton(AF_INET, argv[1], &serv_addr.sin_addr); // Error si IP mal escrita
-	
+
 	if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))
 			< 0) {
 		printf("Error: No se pudo conectar\n");
 		return 1;
 	}
 	pthread_t reci;
-	pthread_create(&reci, NULL, &recibir, (void*)&sockfd);
+	pthread_create(&reci, NULL, &recibir, (void*) &sockfd);
 	enviar(sockfd);
 	return 0;
 }
 
 void* recibir(void *connfd) {
-	char recvBuff[100];
+	char recvBuff[150];
+	recvBuff[1] = 0;
 	do {
-        int bytesRecibidos;
-		while((bytesRecibidos = recv(*(int *)connfd, recvBuff, sizeof(recvBuff) - 1, MSG_WAITALL))<1);
-		recvBuff[bytesRecibidos] = 0;
-		printf("se recibio '%s'\n", recvBuff);
+		do {
+			while (read(*(int*) connfd, recvBuff, (150 * sizeof(recvBuff)) - 1)
+					< 1)
+				;
+		} while (strlen(recvBuff) < 1);
+		printf("%s\n", recvBuff);
 	} while (1);
 }
 
 void enviar(int sock) {
-	char sendBuff[100];
+	char sendBuff[150];
 	do {
-		scanf("%s",sendBuff);
-		sendBuff[99]=0;
+		scanf("%s", sendBuff);
+		sendBuff[149] = 0;
 		write(sock, sendBuff, sizeof(sendBuff));
 	} while (1);
 }
