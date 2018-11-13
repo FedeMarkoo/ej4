@@ -1,4 +1,8 @@
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h> // Define constantes de modo
+#include <fcntl.h> // Define constantes O_*
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -13,10 +17,15 @@ int contine(char* archivo, char* temp);
 void enviar(int connfd, char* cad);
 char* recibir(int connfd);
 void* procesar(void* connfd);
-
+sem_t * crearSemaforo(const char *nombre, int valor);
+void borrarSemaforo(const char * nombre, sem_t *semaforo);
 char* archivo = "\0";
+sem_t *sem;
+int sEM=0;
 
 int main() {
+	sem = crearSemaforo("sem", 1);
+	
 	struct sockaddr_in serv_addr;
 	memset(&serv_addr, '0', sizeof(serv_addr));
 
@@ -35,6 +44,7 @@ int main() {
 		pthread_create(&thread, NULL, &procesar, (void*) &connfd);
 	}
 	close(connfd);
+	borrarSemaforo("sem");
 }
 
 void* procesar(void* cad2) {
@@ -48,11 +58,18 @@ void* procesar(void* cad2) {
 	do {
 		cad = recibir(connfd);
 
+		
 		if (!strcmp(cad, "3")) {
 			close(connfd);
 			return NULL;
 		}
-		// pedir semaforo
+		
+		if(sEM)
+			enviar(connfd, "Se esta realizando una operacion en este momento. Espere unos instantes.\n");
+		sem_wait(sem);
+		if(sEM)
+			enviar(connfd, "Listo. Gracias por aguardar\n");
+		sEM=1;
 		char* tipoPeticion = cad;
 
 		if (!strcmp(tipoPeticion, "2")) {
@@ -63,7 +80,6 @@ void* procesar(void* cad2) {
 			char* examen = recibir(connfd);
 			char temp[100];
 			sprintf(temp, "%s;%s;%s", dni, materia, examen);
-			printf("compara:\narchivo\t%s\ntemp\t%s\n---\n", archivo, temp);
 			if (contine(archivo, temp)) {
 				char temp2[110];
 				enviar(connfd, "Ingrese la nota");
@@ -81,8 +97,8 @@ void* procesar(void* cad2) {
 				enviar(connfd,
 						"ya se realizo la carga del alumno\n\nSeleccione la accion a realizar:\n\t1) Ver Promedio\n\t2) Realizar carga\n\t3) Salir");
 		}
-
-		//liberar
+		sEM=0;
+		sem_post(sem);
 	} while (1);
 }
 
@@ -118,3 +134,13 @@ void enviar(int connfd, char* cad) {
 	write(connfd, sendBuff, sizeof(sendBuff));
 }
 
+
+sem_t * crearSemaforo(const char *nombre, int valor){
+	return sem_open(nombre, O_CREAT, S_IRUSR | S_IWUSR, valor); // 0600
+}
+
+void borrarSemaforo(const char * nombre, sem_t *semaforo)
+{
+	sem_close(semaforo);
+	sem_unlink(nombre);
+}
