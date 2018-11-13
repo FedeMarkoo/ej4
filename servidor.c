@@ -72,6 +72,13 @@ void* procesar(void* cad2) {
 		sEM=1;
 		char* tipoPeticion = cad;
 
+		if (!strcmp(tipoPeticion, "1")){
+			enviar(connfd,"Ingrese el DNI del alumno a buscar");
+			char* dni= recibir(connfd);
+			char* texto;
+			sprintf(texto,"El alumno %s tiene un promedio de %.3f\n",dni,promedio(dni));
+		} 
+		
 		if (!strcmp(tipoPeticion, "2")) {
 
 			enviar(connfd, "Ingrese DNI");
@@ -143,4 +150,66 @@ void borrarSemaforo(const char * nombre, sem_t *semaforo)
 {
 	sem_close(semaforo);
 	sem_unlink(nombre);
+}
+
+float promedio(char * nombre){
+	char notas[][]=split(archivo,'\n');
+	int i=-1;
+	int prom=0,cant=0;
+	char alumno[][];
+	while(notas[++i][0]){
+		if(contine(notas[i],nombre)){
+			prom+=split(notas[i],';')[3];
+			cant++;
+		}
+	}
+	return (float)prom/(float)cant;
+}
+
+char** split(char* a_str, const char a_delim)
+{
+    char** result    = 0;
+    size_t count     = 0;
+    char* tmp        = a_str;
+    char* last_comma = 0;
+    char delim[2];
+    delim[0] = a_delim;
+    delim[1] = 0;
+
+    /* Count how many elements will be extracted. */
+    while (*tmp)
+    {
+        if (a_delim == *tmp)
+        {
+            count++;
+            last_comma = tmp;
+        }
+        tmp++;
+    }
+
+    /* Add space for trailing token. */
+    count += last_comma < (a_str + strlen(a_str) - 1);
+
+    /* Add space for terminating null string so caller
+       knows where the list of returned strings ends. */
+    count++;
+
+    result = malloc(sizeof(char*) * count);
+
+    if (result)
+    {
+        size_t idx  = 0;
+        char* token = strtok(a_str, delim);
+
+        while (token)
+        {
+            assert(idx < count);
+            *(result + idx++) = strdup(token);
+            token = strtok(0, delim);
+        }
+        assert(idx == count - 1);
+        *(result + idx) = 0;
+    }
+
+    return result;
 }
